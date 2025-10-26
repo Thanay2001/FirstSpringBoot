@@ -8,8 +8,10 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 @SpringBootApplication
 public class FirstSpringBootApplication {
@@ -17,43 +19,68 @@ public class FirstSpringBootApplication {
         SpringApplication.run(FirstSpringBootApplication.class, args);
     }
 
+    /**
+     * Idempotent data seeder for local testing.
+     * Runs ONLY when spring.profiles.active includes "devseed".
+     */
     @Bean
-    CommandLineRunner demo(CategoryRepository categoryRepo, ProductRepository productRepo) {
+    @Profile("devseed")
+    CommandLineRunner seedData(CategoryRepository categoryRepo, ProductRepository productRepo) {
         return args -> {
-            System.out.println("=== START DEMO ===");
+            System.out.println("=== SEED START ===");
 
-            // A) Create product with NEW category
+            // Ensure categories exist (no duplicates)
             Category electronics = categoryRepo.findByName("Electronics")
                     .orElseGet(() -> categoryRepo.save(new Category("Electronics")));
-            Product camera = productRepo.save(new Product("Camera", new BigDecimal("399.99"), electronics));
-            System.out.printf("A) Created category '%s' (id=%s) and product '%s' (id=%s)%n",
-                    electronics.getName(), electronics.getId(), camera.getName(), camera.getId());
 
-            // B) Create product for EXISTING category
-            Category existing = categoryRepo.findByName("Electronics").orElseThrow();
-            Product headphones = productRepo.save(new Product("Headphones", new BigDecimal("99.95"), existing));
-            System.out.printf("B) Created product '%s' (id=%s) in category '%s'%n",
-                    headphones.getName(), headphones.getId(), existing.getName());
+            Category pets = categoryRepo.findByName("Pets")
+                    .orElseGet(() -> categoryRepo.save(new Category("Pets")));
 
-            // List BEFORE delete
-            System.out.println("Products BEFORE delete:");
+            // Helper to upsert product by name
+            upsertProduct(productRepo, "Camera", "4K mirrorless camera",
+                    new BigDecimal("399.99"), electronics);
+
+            upsertProduct(productRepo, "Headphones", "Wireless noise-cancelling",
+                    new BigDecimal("99.95"), electronics);
+
+            upsertProduct(productRepo, "Cat Toy", "Feather teaser",
+                    new BigDecimal("9.99"), pets);
+
+            upsertProduct(productRepo, "Dog Bed", "Memory foam medium size",
+                    new BigDecimal("49.99"), pets);
+
+            System.out.println("=== CURRENT PRODUCTS ===");
             productRepo.findAll().forEach(p ->
-                    System.out.printf(" - [%d] %s | %s | category=%s%n",
+                    System.out.printf(" - [%d] %s | %s | cat=%s%n",
                             p.getId(), p.getName(), p.getPrice(), p.getCategory().getName())
             );
 
-           // C) Delete Headphones
-            productRepo.deleteById(headphones.getId());
-            System.out.printf("C) Deleted product '%s' (id=%s)%n", "Headphones", headphones.getId());
-
-            // List AFTER delete
-            System.out.println("Products AFTER delete:");
-            productRepo.findAll().forEach(p ->
-                    System.out.printf(" - [%d] %s | %s | category=%s%n",
-                            p.getId(), p.getName(), p.getPrice(), p.getCategory().getName())
-            );
-
-            System.out.println("=== END DEMO ===");
+            System.out.println("=== SEED END ===");
         };
+    }
+
+    private static void upsertProduct(
+            ProductRepository repo, String name, String desc, BigDecimal price, Category category) {
+
+        Optional<Product> existing = repo.findByName(name) == null
+                ? Optional.empty()
+                : repo.findAll().stream().filter(p -> p.getName().equals(name)).findFirst();
+
+        if (existing.isPresent()) {
+            Product p = existing.get();
+            // update fields in case they were blank
+            p.setDescription(desc);
+            p.setPrice(price);
+            p.setCategory(category);
+            repo.save(p);
+        } else {
+            // adapt to your constructor; this assumes (name, description, price, category)
+            Product p = new Product();
+            p.setName(name);
+            p.setDescription(desc);
+            p.setPrice(price);
+            p.setCategory(category);
+            repo.save(p);
+        }
     }
 }
