@@ -42,7 +42,7 @@ public class FirstSpringBootApplication {
                             p.getId(), p.getName(), p.getPrice(), p.getCategory().getName())
             );
 
-            // C) Delete Headphones
+           // C) Delete Headphones
             productRepo.deleteById(headphones.getId());
             System.out.printf("C) Deleted product '%s' (id=%s)%n", "Headphones", headphones.getId());
 
