@@ -17,6 +17,8 @@ public class Product {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
+    @Column(length = 1000)
+    private String description;
     @ManyToOne(fetch = FetchType.EAGER) // 👈 easiest fix: loads category right away
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
@@ -27,6 +29,13 @@ public class Product {
     public Product(String name, BigDecimal price, Category category) {
         this.name = name;
         this.price = price;
+        this.category = category;
+    }
+
+    public Product(String name, BigDecimal price, String description, Category category) {
+        this.name = name;
+        this.price = price;
+        this.description = description;
         this.category = category;
     }
 
@@ -61,6 +70,14 @@ public class Product {
 
     public void setCategory(Category category) {
         this.category = category;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     @Override
